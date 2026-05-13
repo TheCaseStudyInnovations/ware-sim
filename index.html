@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCS-i Batching Simulation V1</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .dashboards { display: flex; gap: 20px; margin-bottom: 10px; width: 800px; }
+        .panel { 
+            background: white; padding: 15px; border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); flex: 1; text-align: center; 
+        }
+        .tcs-panel { border: 2px solid #0056b3; }
+        .metric { font-size: 24px; font-weight: bold; color: #0056b3; }
+        .canvas-container { display: flex; gap: 20px; }
+        canvas { 
+            background: #ffffff; border: 1px solid #ddd; 
+            border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .btn {
+            margin-top: 25px; padding: 12px 24px; background: #000; color: #fff;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;
+        }
+        .btn:hover { background: #333; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Warehouse Pick Simulation</h2>
+        <p>Comparing unoptimized picking vs TCS-i Intelligent Batching</p>
+    </div>
+
+    <div class="dashboards">
+        <div class="panel">
+            <h3>Standard WMS (FIFO)</h3>
+            <p>Walk Distance: <span id="dist-naive" class="metric">0</span> steps</p>
+        </div>
+        <div class="panel tcs-panel">
+            <h3>TCS-i Batching</h3>
+            <p>Walk Distance: <span id="dist-smart" class="metric">0</span> steps</p>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="canvas-naive" width="380" height="400"></canvas>
+        <canvas id="canvas-smart" width="380" height="400"></canvas>
+    </div>
+
+    <button class="btn" onclick="startSimulation()">Run Simulation</button>
+
+    <script>
+        const ctxNaive = document.getElementById('canvas-naive').getContext('2d');
+        const ctxSmart = document.getElementById('canvas-smart').getContext('2d');
+        let animationId;
+
+        // Simple warehouse layout (x, y, width, height)
+        const racks = [
+            {x: 40, y: 40, w: 60, h: 250},
+            {x: 160, y: 40, w: 60, h: 250},
+            {x: 280, y: 40, w: 60, h: 250}
+        ];
+        const packStation = { x: 190, y: 360 }; // Bottom center
+
+        function drawWarehouse(ctx) {
+            ctx.clearRect(0, 0, 380, 400);
+            
+            // Draw racks
+            ctx.fillStyle = '#e9ecef';
+            ctx.strokeStyle = '#ced4da';
+            racks.forEach(rack => {
+                ctx.fillRect(rack.x, rack.y, rack.w, rack.h);
+                ctx.strokeRect(rack.x, rack.y, rack.w, rack.h);
+            });
+
+            // Draw Packing Station
+            ctx.fillStyle = '#ffc107';
+            ctx.fillRect(140, 340, 100, 40);
+            ctx.fillStyle = '#000';
+            ctx.font = '14px Arial';
+            ctx.fillText('Pack Station', 150, 365);
+        }
+
+        // Agent class to handle movement and drawing
+        class Picker {
+            constructor(color, path, distElementId) {
+                this.x = packStation.x;
+                this.y = packStation.y;
+                this.color = color;
+                this.path = path; // Array of {x, y} coordinates
+                this.targetIndex = 0;
+                this.speed = 2;
+                this.distance = 0;
+                this.distElement = document.getElementById(distElementId);
+            }
+
+            update(ctx) {
+                if (this.targetIndex < this.path.length) {
+                    const target = this.path[this.targetIndex];
+                    const dx = target.x - this.x;
+                    const dy = target.y - this.y;
+                    const distToTarget = Math.sqrt(dx*dx + dy*dy);
+
+                    if (distToTarget < this.speed) {
+                        this.x = target.x;
+                        this.y = target.y;
+                        this.targetIndex++; // Move to next pick
+                    } else {
+                        // Move towards target
+                        const vx = (dx / distToTarget) * this.speed;
+                        const vy = (dy / distToTarget) * this.speed;
+                        this.x += vx;
+                        this.y += vy;
+                        this.distance += Math.sqrt(vx*vx + vy*vy); // Track steps
+                    }
+                }
+
+                // Update UI
+                this.distElement.innerText = Math.floor(this.distance);
+
+                // Draw Picker (Dot)
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+
+                // Draw current target marker
+                if (this.targetIndex < this.path.length) {
+                    const t = this.path[this.targetIndex];
+                    if (t.x !== packStation.x) { // Don't draw crosshair on pack station
+                        ctx.beginPath();
+                        ctx.arc(t.x, t.y, 10, 0, Math.PI * 2);
+                        ctx.strokeStyle = this.color;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        let naivePicker, smartPicker;
+
+        function startSimulation() {
+            cancelAnimationFrame(animationId);
+            
+            // Standard WMS: Pickers bounce back and forth across the warehouse randomly
+            const naivePath = [
+                {x: 115, y: 60},   // Aisle 1, top
+                {x: 355, y: 280},  // Aisle 3, bottom
+                {x: 115, y: 150},  // Aisle 1, middle
+                packStation
+            ];
+
+            // TCS-i Batching: Picker grabs a clustered batch in one zone
+            const smartPath = [
+                {x: 255, y: 80},   // Aisle 2, top
+                {x: 255, y: 120},  // Aisle 2, upper middle
+                {x: 255, y: 160},  // Aisle 2, middle
+                packStation
+            ];
+
+            naivePicker = new Picker('#dc3545', naivePath, 'dist-naive'); // Red
+            smartPicker = new Picker('#28a745', smartPath, 'dist-smart'); // Green
+
+            animate();
+        }
+
+        function animate() {
+            drawWarehouse(ctxNaive);
+            drawWarehouse(ctxSmart);
+
+            if (naivePicker) naivePicker.update(ctxNaive);
+            if (smartPicker) smartPicker.update(ctxSmart);
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Initial draw
+        drawWarehouse(ctxNaive);
+        drawWarehouse(ctxSmart);
+
+    </script>
+</body>
+</html>
