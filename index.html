@@ -2,194 +2,762 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TCS-i Batching Simulation V1</title>
+    <title>Batching Simulation | TCS-i</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
+        :root {
+            --metal-blue: #1F4E79;
+            --tcs-green: #28a745;
+            --wms-blue: #0056b3;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-light: #e2e8f0;
+        }
+
+        body { 
+            font-family: system-ui, Avenir, Helvetica, Arial, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0; 
+            padding: 30px 20px; 
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h2 { margin: 0; color: var(--metal-blue); font-size: 28px; font-weight: 700; letter-spacing: -0.02em;}
+        .header p { margin: 5px 0 0 0; color: var(--text-muted); font-size: 16px;}
+
+        /* 3-COLUMN MAIN LAYOUT */
+        .dashboard-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 25px;
+            width: 100%;
+            max-width: 1450px;
+        }
+
+        /* SIDE PANELS (KPIs) */
+        .side-panel {
+            flex: 0 0 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+        }
+        
+        .top-card {
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 700;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+        }
+        .wms-title { color: var(--wms-blue); border-color: var(--wms-blue); }
+        .tcs-title { color: var(--tcs-green); border-color: var(--tcs-green); }
+
+        .metric-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 500;}
+        .metric-row.sub { font-size: 12px; color: var(--text-muted); font-weight: 400; padding-left: 10px; margin: 4px 0;}
+        .val { font-weight: 700; font-size: 16px; color: var(--metal-blue); }
+        .age-alert { color: #ef4444; }
+
+        .pool-badge {
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* CENTER STAGE (Visuals & Controls) */
+        .center-stage {
+            flex: 0 0 830px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            gap: 15px;
         }
-        .header { text-align: center; margin-bottom: 20px; }
-        .dashboards { display: flex; gap: 20px; margin-bottom: 10px; width: 800px; }
-        .panel { 
-            background: white; padding: 15px; border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); flex: 1; text-align: center; 
+
+        .global-telemetry {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgb(0 0 0 / 0.02);
+            font-size: 13px;
+            font-weight: 500;
         }
-        .tcs-panel { border: 2px solid #0056b3; }
-        .metric { font-size: 24px; font-weight: bold; color: #0056b3; }
-        .canvas-container { display: flex; gap: 20px; }
+        .global-telemetry span { font-weight: 700; color: var(--metal-blue); }
+
+        .controls { 
+            display: flex; 
+            gap: 15px; 
+            width: 100%;
+            justify-content: center;
+        }
+        button { 
+            padding: 10px 20px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            border-radius: 6px; 
+            border: 1px solid var(--border-light); 
+            background: var(--card-bg); 
+            color: var(--text-main); 
+            transition: all 0.2s ease;
+        }
+        button:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        button.primary { background: var(--metal-blue); color: #fff; border-color: var(--metal-blue);}
+        button.primary:hover { background: #153a5b; border-color: #153a5b; }
+
+        .canvas-container { display: flex; gap: 30px; }
+        .canvas-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .canvas-title { font-weight: 700; font-size: 15px; }
         canvas { 
-            background: #ffffff; border: 1px solid #ddd; 
-            border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            background: white; 
+            border: 1px solid var(--border-light); 
+            border-radius: 8px; 
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
         }
-        .btn {
-            margin-top: 25px; padding: 12px 24px; background: #000; color: #fff;
-            border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;
+
+        .legend-bar { 
+            width: 100%; 
+            display: flex; 
+            justify-content: center; 
+            gap: 20px;
+            align-items: center; 
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            font-size: 12px;
+            color: var(--text-muted);
+            box-sizing: border-box;
         }
-        .btn:hover { background: #333; }
+        .legend-group { display: flex; align-items: center; gap: 10px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .l-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .l-square { width: 10px; height: 10px; border-radius: 2px; }
+        .l-hollow { width: 10px; height: 10px; border: 2px solid var(--text-main); box-sizing: border-box; }
+        .divider { width: 1px; height: 16px; background: var(--border-light); }
+
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h2>Warehouse Pick Simulation</h2>
-        <p>Comparing unoptimized picking vs TCS-i Intelligent Batching</p>
+        <h2>Dynamic Batching Simulation</h2>
+        <p>Real-time geographic pool generation vs Naive WMS sorting</p>
     </div>
 
-    <div class="dashboards">
-        <div class="panel">
-            <h3>Standard WMS (FIFO)</h3>
-            <p>Walk Distance: <span id="dist-naive" class="metric">0</span> steps</p>
+    <div class="dashboard-layout">
+        
+        <div class="side-panel">
+            <div class="card top-card">
+                <div>
+                    <h3 class="card-title wms-title">Standard WMS Logic</h3>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Sorts entire warehouse strictly by Priority and Age.</div>
+                </div>
+                
+                <div>
+                    <div class="metric-row">
+                        <span>Processor:</span>
+                        <span style="font-weight: 700; color: #94a3b8; font-size:12px;">LOCAL WMS</span>
+                    </div>
+                    <div class="metric-row sub" style="margin-bottom: 8px;">
+                        <span>Hold State:</span>
+                        <span style="font-weight: 700;">BYPASSED</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:4px 4px 0 0;">
+                        <span>Hold Pool Size:</span>
+                        <span class="pool-badge" style="background:#e2e8f0; color:#94a3b8;">N/A</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:0 0 4px 4px; border-top:1px solid #fff;">
+                        <span>Ready Pool Size:</span>
+                        <span class="pool-badge" id="t-naive-ready" style="color: var(--wms-blue); background:#e0e7ff;">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="metric-row"><span>Walk Distance:</span> <span class="val" id="n-dist">0</span></div>
+                <div style="height:10px;"></div>
+                <div class="metric-row"><span>Completed Orders:</span> <span class="val" id="n-picked">0</span></div>
+                <div class="metric-row sub">↳ Urgent (SLA 5): <span class="val" id="n-picked-sla5" style="font-size: 13px;">0</span></div>
+                <div class="metric-row sub">↳ Normal: <span class="val" id="n-picked-norm" style="font-size: 13px;">0</span></div>
+                <div style="height:10px; border-bottom: 1px solid #f1f5f9; margin-bottom:10px;"></div>
+                <div class="metric-row"><span>Avg / Max Age:</span> <span class="val" id="n-age" style="font-size: 14px;">0 / 0 min</span></div>
+            </div>
         </div>
-        <div class="panel tcs-panel">
-            <h3>TCS-i Batching</h3>
-            <p>Walk Distance: <span id="dist-smart" class="metric">0</span> steps</p>
-        </div>
-    </div>
 
-    <div class="canvas-container">
-        <canvas id="canvas-naive" width="380" height="400"></canvas>
-        <canvas id="canvas-smart" width="380" height="400"></canvas>
-    </div>
-
-    <button class="btn" onclick="startSimulation()">Run Simulation</button>
-
-    <script>
-        const ctxNaive = document.getElementById('canvas-naive').getContext('2d');
-        const ctxSmart = document.getElementById('canvas-smart').getContext('2d');
-        let animationId;
-
-        // Simple warehouse layout (x, y, width, height)
-        const racks = [
-            {x: 40, y: 40, w: 60, h: 250},
-            {x: 160, y: 40, w: 60, h: 250},
-            {x: 280, y: 40, w: 60, h: 250}
-        ];
-        const packStation = { x: 190, y: 360 }; // Bottom center
-
-        function drawWarehouse(ctx) {
-            ctx.clearRect(0, 0, 380, 400);
+        <div class="center-stage">
             
-            // Draw racks
-            ctx.fillStyle = '#e9ecef';
-            ctx.strokeStyle = '#ced4da';
-            racks.forEach(rack => {
-                ctx.fillRect(rack.x, rack.y, rack.w, rack.h);
-                ctx.strokeRect(rack.x, rack.y, rack.w, rack.h);
+            <div class="global-telemetry">
+                <div>Total Injected: <span id="t-total">0</span></div>
+                <div>Urgent (SLA 5): <span id="t-sla5">0</span></div>
+                <div>Normal (SLA <5): <span id="t-sla-norm">0</span></div>
+                <div>Sim Time: <span id="t-time">0</span> min</div>
+            </div>
+
+            <div class="controls">
+                <button class="primary" id="btn-play" onclick="togglePlay()">Play Simulation</button>
+                <button onclick="speedUp()">Playback Speed: <span id="speed-lbl">1x</span></button>
+                <button onclick="injectOrderSpike()">Inject +20 Orders</button>
+            </div>
+
+            <div class="canvas-container">
+                <div class="canvas-wrapper">
+                    <div class="canvas-title" style="color:var(--wms-blue);">Standard WMS</div>
+                    <canvas id="canvas-naive" width="400" height="400"></canvas>
+                </div>
+                <div class="canvas-wrapper">
+                    <div class="canvas-title" style="color:var(--tcs-green);">TCS-i Pre-Batching</div>
+                    <canvas id="canvas-smart" width="400" height="400"></canvas>
+                </div>
+            </div>
+
+            <div class="legend-bar">
+                <div class="legend-group">
+                    <strong>Agents:</strong>
+                    <div class="legend-item"><div class="l-dot" style="background:var(--wms-blue);"></div> WMS Picker</div>
+                    <div class="legend-item"><div class="l-dot" style="background:var(--tcs-green);"></div> TCS-i Picker</div>
+                </div>
+                <div class="divider"></div>
+                <div class="legend-group">
+                    <strong>Inventory:</strong>
+                    <div class="legend-item"><div class="l-square" style="background:#94a3b8;"></div> Hold Pool</div>
+                    <div class="legend-item"><div class="l-square" style="background:var(--tcs-green);"></div> Ready Pool</div>
+                    <div class="legend-item"><div class="l-square" style="background:#f97316;"></div> In Cart</div>
+                </div>
+                <div class="divider"></div>
+                <div class="legend-group">
+                    <div class="legend-item"><div class="l-hollow"></div> Active Target</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="card top-card">
+                <div>
+                    <h3 class="card-title tcs-title">TCS-i Logic</h3>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">API drip-feeds optimal geographic ribbons to the WMS.</div>
+                </div>
+                
+                <div>
+                    <div class="metric-row">
+                        <span>API Status:</span>
+                        <span id="t-api-status" style="font-weight: 700; color: #94a3b8; font-size:12px;">IDLE</span>
+                    </div>
+                    <div class="metric-row sub" style="margin-bottom: 8px;">
+                        <span>Last Request:</span>
+                        <span id="t-api-last-req" style="font-weight: 700;">0 items</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:4px 4px 0 0;">
+                        <span>Hold Pool Size:</span>
+                        <span class="pool-badge" id="t-tcs-hold" style="background:#e2e8f0;">0</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:0 0 4px 4px; border-top:1px solid #fff;">
+                        <span>Ready Pool Size:</span>
+                        <span class="pool-badge" id="t-tcs-ready" style="color: var(--tcs-green); background:#dcfce3;">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="metric-row"><span>Walk Distance:</span> <span class="val" id="s-dist">0</span></div>
+                <div style="height:10px;"></div>
+                <div class="metric-row"><span>Completed Orders:</span> <span class="val" id="s-picked">0</span></div>
+                <div class="metric-row sub">↳ Urgent (SLA 5): <span class="val" id="s-picked-sla5" style="font-size: 13px;">0</span></div>
+                <div class="metric-row sub">↳ Normal: <span class="val" id="s-picked-norm" style="font-size: 13px;">0</span></div>
+                <div style="height:10px; border-bottom: 1px solid #f1f5f9; margin-bottom:10px;"></div>
+                <div class="metric-row"><span>Avg / Max Age:</span> <span class="val" id="s-age" style="font-size: 14px;">0 / 0 min</span></div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// --- CORE CONFIG (Tuned 35/30 Grid) ---
+const API_URL = "http://127.0.0.1:8000/batch"; 
+const API_KEY = "VFaCgj4imNs_nY47fEJfl6CWJaOFys1ZKCKMXz2MCcI";
+const CELL = 12, COLS = 35, ROWS = 30;
+const PACK_X = 17, PACK_Y = 29; // Center bottom
+const PACK_STATION = `LOC_${PACK_X}_${PACK_Y}`;
+const BATCH_SIZE = 5; 
+
+// THRESHOLDS
+const READY_POOL_MIN_THRESHOLD = 11; 
+const API_TOP_UP_AMOUNT = 20;  
+const API_CHECK_INTERVAL = 50; 
+
+let simTick = 0;
+let speedMult = 1; 
+let isRunning = false;
+let isCallingAPI = false;
+let hasColdStarted = false;
+let apiHasReturnedOnce = false;
+
+let stats = { total: 0, sla5: 0, slaNorm: 0 };
+
+// --- WAREHOUSE LAYOUT & PICK FACES ---
+const grid = Array(COLS).fill().map(() => Array(ROWS).fill(0));
+const walkableLocs = []; 
+const pickFaces = []; 
+
+for (let x = 2; x < COLS - 2; x += 4) {
+    for (let y = 2; y < ROWS - 2; y++) {
+        grid[x][y] = 1; grid[x+1][y] = 1; 
+        pickFaces.push({ shelfX: x, shelfY: y, walkX: x-1, walkY: y, id: `LOC_${x-1}_${y}` });
+        pickFaces.push({ shelfX: x+1, shelfY: y, walkX: x+2, walkY: y, id: `LOC_${x+2}_${y}` });
+    }
+}
+for (let x = 0; x < COLS; x++) {
+    for (let y = 0; y < ROWS; y++) {
+        if(grid[x][y] === 0) walkableLocs.push(`LOC_${x}_${y}`);
+    }
+}
+
+const distance_matrix = {};
+walkableLocs.forEach(l1 => {
+    distance_matrix[l1] = {};
+    let [_, x1, y1] = l1.split('_').map(Number);
+    walkableLocs.forEach(l2 => {
+        let [__, x2, y2] = l2.split('_').map(Number);
+        distance_matrix[l1][l2] = Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    });
+});
+
+// --- DATA MODELS ---
+let WMS_Naive = { readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
+let WMS_Smart = { holdPool: [], readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
+
+function generateOrder() {
+    let sla = Math.random() > 0.8 ? 5 : Math.floor(Math.random() * 4) + 1; 
+    let numItems = Math.floor(Math.random() * 3) + 1; 
+    
+    let items = [];
+    // Start with a "Seed" location for the first item
+    let seedFace = pickFaces[Math.floor(Math.random() * pickFaces.length)];
+    
+    for(let i=0; i<numItems; i++) {
+        let face;
+        if(i === 0) {
+            face = seedFace;
+        } else {
+            // Find items within a 5-unit radius of the first item
+            // This ensures orders aren't scattered across the whole building
+            let nearbyFaces = pickFaces.filter(f => 
+                Math.abs(f.shelfX - seedFace.shelfX) <= 6 && 
+                Math.abs(f.shelfY - seedFace.shelfY) <= 10
+            );
+            face = nearbyFaces[Math.floor(Math.random() * nearbyFaces.length)] || seedFace;
+        }
+        
+        items.push({ 
+            item_id: "ITM_" + Math.random().toString(36).substr(2, 4), 
+            location_id: face.id, 
+            shelfX: face.shelfX,  
+            shelfY: face.shelfY,
+            walkX: face.walkX,    
+            walkY: face.walkY
+        });
+    }
+
+    stats.total++;
+    if(sla === 5) stats.sla5++; else stats.slaNorm++;
+
+    return {
+        order_id: "ORD_" + Math.random().toString(36).substr(2, 6),
+        total_volume: Math.random() * 20 + 5,
+        sla_priority: sla,
+        age_minutes: 0,
+        items: items
+    };
+}
+
+function injectSingleOrder() {
+    let o = generateOrder();
+    WMS_Naive.readyPool.push(JSON.parse(JSON.stringify(o)));
+    WMS_Smart.holdPool.push(JSON.parse(JSON.stringify(o)));
+}
+
+// --- PATHFINDING & ROUTING ---
+function findPath(startX, startY, endX, endY) {
+    if (startX === endX && startY === endY) return [];
+    let queue = [{x: startX, y: startY, path: []}];
+    let visited = new Set([`${startX},${startY}`]);
+    const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+
+    while(queue.length > 0) {
+        let curr = queue.shift();
+        if(curr.x === endX && curr.y === endY) return curr.path;
+        for(let d of dirs) {
+            let nx = curr.x + d[0], ny = curr.y + d[1];
+            if(nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && grid[nx][ny] === 0) {
+                if(!visited.has(`${nx},${ny}`)) {
+                    visited.add(`${nx},${ny}`);
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+    }
+    return []; 
+}
+
+function routeBatch(batch, startX, startY) {
+    let unpickedItems = [];
+    batch.forEach(order => {
+        order.items.forEach(item => {
+            unpickedItems.push({ order: order, item: item });
+        });
+    });
+
+    let route = [];
+    let currX = startX, currY = startY;
+
+    while(unpickedItems.length > 0) {
+        let bestIdx = -1, bestDist = Infinity;
+        for(let i=0; i<unpickedItems.length; i++) {
+            let px = unpickedItems[i].item.walkX, py = unpickedItems[i].item.walkY;
+            let dist = Math.abs(currX - px) + Math.abs(currY - py);
+            if(dist < bestDist) { bestDist = dist; bestIdx = i; }
+        }
+        let winner = unpickedItems.splice(bestIdx, 1)[0];
+        route.push({x: winner.item.walkX, y: winner.item.walkY, order: winner.order, item: winner.item, isPack: false});
+        currX = winner.item.walkX; currY = winner.item.walkY;
+    }
+    route.push({x: PACK_X, y: PACK_Y, isPack: true}); 
+    return route;
+}
+
+// --- API INTEGRATION ---
+async function triggerTCSAPI() {
+    if(WMS_Smart.holdPool.length === 0 || isCallingAPI) return;
+    
+    if(WMS_Smart.readyPool.length >= READY_POOL_MIN_THRESHOLD) return; 
+    
+    let needed = Math.min(API_TOP_UP_AMOUNT, WMS_Smart.holdPool.length);
+    if(needed <= 0) return;
+    
+    isCallingAPI = true;
+    let statusEl = document.getElementById('t-api-status');
+    statusEl.innerText = "FETCHING...";
+    statusEl.style.color = "#f59e0b"; // Amber warning
+    document.getElementById('t-api-last-req').innerText = needed + " items";
+    
+    const payload = {
+        active_pool: WMS_Smart.readyPool, 
+        candidate_pool: WMS_Smart.holdPool, 
+        distance_matrix: distance_matrix,
+        target_release_count: needed, 
+        pack_station_id: PACK_STATION,
+        sla_weight: 1.0,
+        age_weight: 0.1 
+    };
+
+    try {
+        const resp = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+            body: JSON.stringify(payload)
+        });
+        
+        if(resp.ok) {
+            const data = await resp.json();
+            const releasedIds = data.released_order_ids || [];
+            
+            releasedIds.forEach(id => {
+                let idx = WMS_Smart.holdPool.findIndex(o => o.order_id === id);
+                if(idx > -1) {
+                    WMS_Smart.readyPool.push(WMS_Smart.holdPool.splice(idx, 1)[0]);
+                }
             });
-
-            // Draw Packing Station
-            ctx.fillStyle = '#ffc107';
-            ctx.fillRect(140, 340, 100, 40);
-            ctx.fillStyle = '#000';
-            ctx.font = '14px Arial';
-            ctx.fillText('Pack Station', 150, 365);
-        }
-
-        // Agent class to handle movement and drawing
-        class Picker {
-            constructor(color, path, distElementId) {
-                this.x = packStation.x;
-                this.y = packStation.y;
-                this.color = color;
-                this.path = path; // Array of {x, y} coordinates
-                this.targetIndex = 0;
-                this.speed = 2;
-                this.distance = 0;
-                this.distElement = document.getElementById(distElementId);
-            }
-
-            update(ctx) {
-                if (this.targetIndex < this.path.length) {
-                    const target = this.path[this.targetIndex];
-                    const dx = target.x - this.x;
-                    const dy = target.y - this.y;
-                    const distToTarget = Math.sqrt(dx*dx + dy*dy);
-
-                    if (distToTarget < this.speed) {
-                        this.x = target.x;
-                        this.y = target.y;
-                        this.targetIndex++; // Move to next pick
-                    } else {
-                        // Move towards target
-                        const vx = (dx / distToTarget) * this.speed;
-                        const vy = (dy / distToTarget) * this.speed;
-                        this.x += vx;
-                        this.y += vy;
-                        this.distance += Math.sqrt(vx*vx + vy*vy); // Track steps
-                    }
-                }
-
-                // Update UI
-                this.distElement.innerText = Math.floor(this.distance);
-
-                // Draw Picker (Dot)
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.stroke();
-
-                // Draw current target marker
-                if (this.targetIndex < this.path.length) {
-                    const t = this.path[this.targetIndex];
-                    if (t.x !== packStation.x) { // Don't draw crosshair on pack station
-                        ctx.beginPath();
-                        ctx.arc(t.x, t.y, 10, 0, Math.PI * 2);
-                        ctx.strokeStyle = this.color;
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-
-        let naivePicker, smartPicker;
-
-        function startSimulation() {
-            cancelAnimationFrame(animationId);
             
-            // Standard WMS: Pickers bounce back and forth across the warehouse randomly
-            const naivePath = [
-                {x: 115, y: 60},   // Aisle 1, top
-                {x: 355, y: 280},  // Aisle 3, bottom
-                {x: 115, y: 150},  // Aisle 1, middle
-                packStation
-            ];
+            apiHasReturnedOnce = true;
+            statusEl.innerText = "SUCCESS";
+            statusEl.style.color = "#10b981"; // Emerald green
+        } else {
+            statusEl.innerText = "ERR HTTP " + resp.status;
+            statusEl.style.color = "#ef4444"; // Red
+        }
+    } catch(err) {
+        console.error(err);
+        statusEl.innerText = "NETWORK ERR";
+        statusEl.style.color = "#ef4444";
+    } finally {
+        setTimeout(() => { 
+            if(!isCallingAPI) { 
+                statusEl.innerText = "IDLE"; 
+                statusEl.style.color = "#94a3b8"; 
+            }
+        }, 1000);
+        isCallingAPI = false;
+    }
+}
 
-            // TCS-i Batching: Picker grabs a clustered batch in one zone
-            const smartPath = [
-                {x: 255, y: 80},   // Aisle 2, top
-                {x: 255, y: 120},  // Aisle 2, upper middle
-                {x: 255, y: 160},  // Aisle 2, middle
-                packStation
-            ];
+// --- AGENT (PICKER) LOGIC ---
+class Picker {
+    constructor(stateObj, prefixId) {
+        this.x = PACK_X; this.y = PACK_Y;
+        this.stateObj = stateObj; 
+        this.prefixId = prefixId; 
+        
+        this.state = 'IDLE';
+        this.currentBatch = []; 
+        this.targets = []; 
+        this.stepPath = []; 
+    }
 
-            naivePicker = new Picker('#dc3545', naivePath, 'dist-naive'); // Red
-            smartPicker = new Picker('#28a745', smartPath, 'dist-smart'); // Green
+    requestBatch() {
+        let pool = this.stateObj.readyPool; 
+        if(pool.length === 0) return;
 
-            animate();
+        pool.sort((a, b) => {
+            if(b.sla_priority !== a.sla_priority) return b.sla_priority - a.sla_priority;
+            return b.age_minutes - a.age_minutes;
+        });
+        
+        this.currentBatch = pool.splice(0, BATCH_SIZE);
+        let stops = routeBatch(this.currentBatch, this.x, this.y);
+        this.targets = stops;
+        
+        this.stepPath = [];
+        let currX = this.x, currY = this.y;
+        
+        for(let stop of stops) {
+            let pathSegment = findPath(currX, currY, stop.x, stop.y);
+            for(let i=0; i<pathSegment.length; i++) {
+                let isLastStep = (i === pathSegment.length - 1);
+                this.stepPath.push({ x: pathSegment[i].x, y: pathSegment[i].y, isTarget: isLastStep, order: isLastStep ? stop.order : null, isPack: isLastStep ? stop.isPack : false });
+            }
+            if(pathSegment.length === 0) {
+                this.stepPath.push({x: stop.x, y: stop.y, isTarget: true, order: stop.order, isPack: stop.isPack});
+            }
+            currX = stop.x; currY = stop.y;
         }
 
-        function animate() {
-            drawWarehouse(ctxNaive);
-            drawWarehouse(ctxSmart);
+        this.state = 'WALKING';
+    }
 
-            if (naivePicker) naivePicker.update(ctxNaive);
-            if (smartPicker) smartPicker.update(ctxSmart);
+    update() {
+        if(this.state === 'IDLE') {
+            if(apiHasReturnedOnce) this.requestBatch();
+        } else if (this.state === 'WALKING') {
+            if(this.stepPath.length > 0) {
+                let step = this.stepPath.shift();
+                
+                if(this.x !== step.x || this.y !== step.y) {
+                    this.x = step.x; this.y = step.y;
+                    this.stateObj.distance++;
+                }
 
-            animationId = requestAnimationFrame(animate);
+                if(step.isTarget) {
+                    if(step.isPack) {
+                        this.currentBatch.forEach(o => {
+                            this.stateObj.picked++;
+                            if(o.sla_priority === 5) this.stateObj.pickedSla5++;
+                            else this.stateObj.pickedNorm++;
+                        });
+                        this.currentBatch = [];
+                    }
+                }
+                
+                document.getElementById(`${this.prefixId}-dist`).innerText = this.stateObj.distance;
+                document.getElementById(`${this.prefixId}-picked`).innerText = this.stateObj.picked;
+                document.getElementById(`${this.prefixId}-picked-sla5`).innerText = this.stateObj.pickedSla5;
+                document.getElementById(`${this.prefixId}-picked-norm`).innerText = this.stateObj.pickedNorm;
+            } else {
+                this.state = 'IDLE'; 
+            }
         }
+    }
 
-        // Initial draw
-        drawWarehouse(ctxNaive);
-        drawWarehouse(ctxSmart);
+    draw(ctx, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(this.x * CELL + CELL/2, this.y * CELL + CELL/2, 6, 0, Math.PI*2);
+        ctx.fill();
 
-    </script>
+        ctx.strokeStyle = '#1e293b'; 
+        ctx.lineWidth = 2;
+        this.targets.forEach(t => {
+            if(!t.isPack && t.item) {
+                ctx.strokeRect(t.item.shelfX * CELL + 2, t.item.shelfY * CELL + 2, CELL-4, CELL-4);
+            }
+        });
+    }
+}
+
+const ctxNaive = document.getElementById('canvas-naive').getContext('2d');
+const ctxSmart = document.getElementById('canvas-smart').getContext('2d');
+
+let pNaive = new Picker(WMS_Naive, 'n');
+let pSmart = new Picker(WMS_Smart, 's');
+
+function drawItems(ctx, stateObj, isSmart, picker) {
+    let allItems = [];
+    if(!isSmart) {
+        stateObj.readyPool.forEach(o => o.items.forEach(i => allItems.push({item: i, type: 'ready'})));
+    } else {
+        stateObj.holdPool.forEach(o => o.items.forEach(i => allItems.push({item: i, type: 'hold'})));
+        stateObj.readyPool.forEach(o => o.items.forEach(i => allItems.push({item: i, type: 'ready'})));
+    }
+
+    picker.currentBatch.forEach(o => o.items.forEach(i => allItems.push({item: i, type: 'transit'})));
+
+    let cellOffsets = {};
+    
+    allItems.forEach(entry => {
+        let i = entry.item;
+        let locKey = `${i.shelfX}_${i.shelfY}`;
+        if(!cellOffsets[locKey]) cellOffsets[locKey] = 0;
+        
+        let offsetX = (cellOffsets[locKey] % 2) * 6;
+        let offsetY = Math.floor(cellOffsets[locKey] / 2) * 6;
+        cellOffsets[locKey]++;
+
+        if(entry.type === 'transit') {
+            ctx.fillStyle = '#f97316'; 
+        } else {
+            ctx.fillStyle = !isSmart ? '#0056b3' : (entry.type === 'ready' ? '#28a745' : '#94a3b8');
+        }
+        
+        ctx.fillRect(i.shelfX * CELL + 4 + offsetX, i.shelfY * CELL + 4 + offsetY, 5, 5);
+    });
+}
+
+function drawMap(ctx) {
+    ctx.clearRect(0,0,400,400);
+    ctx.fillStyle = '#f1f5f9'; 
+    for(let x=0; x<COLS; x++) {
+        for(let y=0; y<ROWS; y++) {
+            if(grid[x][y] === 1) {
+                ctx.fillRect(x*CELL, y*CELL, CELL-1, CELL-1);
+            }
+        }
+    }
+    ctx.fillStyle = '#fcd34d'; 
+    ctx.fillRect(PACK_X*CELL - CELL, PACK_Y*CELL, CELL*3, CELL);
+}
+
+function getPoolStats(pool, isTcs=false, holdPool=[]) {
+    let combined = isTcs ? [...pool, ...holdPool] : [...pool];
+    if(combined.length === 0) return { max: 0, avg: 0 };
+    let max = 0, sum = 0;
+    combined.forEach(o => { max = Math.max(max, o.age_minutes); sum += o.age_minutes; });
+    return { max: Math.floor(max), avg: Math.floor(sum/combined.length) };
+}
+
+function updateUI() {
+    document.getElementById('t-total').innerText = stats.total;
+    document.getElementById('t-sla5').innerText = stats.sla5;
+    document.getElementById('t-sla-norm').innerText = stats.slaNorm;
+    
+    document.getElementById('t-naive-ready').innerText = WMS_Naive.readyPool.length;
+    document.getElementById('t-tcs-hold').innerText = WMS_Smart.holdPool.length;
+    document.getElementById('t-tcs-ready').innerText = WMS_Smart.readyPool.length;
+    
+    document.getElementById('t-time').innerText = Math.floor(simTick / 60);
+
+    let nAge = getPoolStats(WMS_Naive.readyPool);
+    let sAge = getPoolStats(WMS_Smart.readyPool, true, WMS_Smart.holdPool);
+    
+    let nAgeEl = document.getElementById('n-age');
+    nAgeEl.innerText = `${nAge.avg} / ${nAge.max} min`;
+    nAgeEl.className = nAge.max > 100 ? 'val age-alert' : 'val';
+
+    let sAgeEl = document.getElementById('s-age');
+    sAgeEl.innerText = `${sAge.avg} / ${sAge.max} min`;
+    sAgeEl.className = sAge.max > 100 ? 'val age-alert' : 'val';
+}
+
+function gameLoop() {
+    if(isRunning) {
+        for(let s=0; s<speedMult; s++) {
+            simTick++;
+
+            if(simTick % 23 === 0) injectSingleOrder();
+
+            if(simTick % 60 === 0) {
+                WMS_Naive.readyPool.forEach(o => o.age_minutes += 1);
+                WMS_Smart.holdPool.forEach(o => o.age_minutes += 1);
+                WMS_Smart.readyPool.forEach(o => o.age_minutes += 1);
+            }
+
+            if(simTick % API_CHECK_INTERVAL === 0) triggerTCSAPI();
+
+            pNaive.update();
+            pSmart.update();
+        }
+        updateUI();
+    }
+
+    drawMap(ctxNaive); 
+    drawItems(ctxNaive, WMS_Naive, false, pNaive); 
+    pNaive.draw(ctxNaive, '#0056b3');
+
+    drawMap(ctxSmart); 
+    drawItems(ctxSmart, WMS_Smart, true, pSmart); 
+    pSmart.draw(ctxSmart, '#28a745');
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function togglePlay() {
+    if(!hasColdStarted) {
+        for(let i=0; i<30; i++) injectSingleOrder();
+        triggerTCSAPI(); 
+        hasColdStarted = true;
+    }
+    
+    isRunning = !isRunning;
+    const btn = document.getElementById('btn-play');
+    btn.innerText = isRunning ? 'Pause Simulation' : 'Play Simulation';
+    btn.style.background = isRunning ? '#ef4444' : 'var(--metal-blue)';
+    btn.style.borderColor = isRunning ? '#ef4444' : 'var(--metal-blue)';
+}
+
+function speedUp() {
+    speedMult = speedMult === 1 ? 2 : (speedMult === 2 ? 5 : 1);
+    document.getElementById('speed-lbl').innerText = speedMult + 'x';
+}
+
+function injectOrderSpike() {
+    for(let i=0; i<20; i++) injectSingleOrder();
+    updateUI();
+}
+
+drawMap(ctxNaive); 
+drawItems(ctxNaive, WMS_Naive, false, pNaive);
+drawMap(ctxSmart); 
+drawItems(ctxSmart, WMS_Smart, true, pSmart);
+updateUI();
+requestAnimationFrame(gameLoop);
+
+</script>
 </body>
 </html>
