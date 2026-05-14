@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Batching Simulation | TCS-i</title>
     <style>
         :root {
@@ -33,22 +34,25 @@
         .header h2 { margin: 0; color: var(--metal-blue); font-size: 28px; font-weight: 700; letter-spacing: -0.02em;}
         .header p { margin: 5px 0 0 0; color: var(--text-muted); font-size: 16px;}
 
-        /* 3-COLUMN MAIN LAYOUT */
+        /* FLUID 3-COLUMN MAIN LAYOUT */
         .dashboard-layout {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            gap: 25px;
+            gap: 20px;
             width: 100%;
             max-width: 1450px;
         }
 
-        /* SIDE PANELS (KPIs) */
+        /* SIDE PANELS (KPIs) - Now Shrinkable */
         .side-panel {
-            flex: 0 0 280px;
+            flex: 1 1 250px;
+            min-width: 220px; /* Won't shrink past this */
+            max-width: 280px;
             display: flex;
             flex-direction: column;
             gap: 15px;
+            width: 100%;
         }
 
         .card {
@@ -90,9 +94,12 @@
             color: var(--text-main);
         }
 
-        /* CENTER STAGE (Visuals & Controls) */
+        /* CENTER STAGE (Visuals & Controls) - Now Shrinkable */
         .center-stage {
-            flex: 0 0 830px;
+            flex: 3 1 830px;
+            min-width: 0; /* CRITICAL: Allows flex child to shrink below intrinsic content size */
+            max-width: 830px;
+            width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -102,6 +109,8 @@
         .global-telemetry {
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
             width: 100%;
             background: var(--card-bg);
             padding: 10px 20px;
@@ -116,12 +125,13 @@
 
         .controls { 
             display: flex; 
-            gap: 15px; 
+            gap: 10px; 
             width: 100%;
             justify-content: center;
+            flex-wrap: wrap;
         }
         button { 
-            padding: 10px 20px; 
+            padding: 10px 16px; 
             cursor: pointer; 
             font-weight: 600; 
             border-radius: 6px; 
@@ -129,19 +139,66 @@
             background: var(--card-bg); 
             color: var(--text-main); 
             transition: all 0.2s ease;
+            flex: 1 1 auto; 
+            text-align: center;
         }
         button:hover { background: #f1f5f9; border-color: #cbd5e1; }
         button.primary { background: var(--metal-blue); color: #fff; border-color: var(--metal-blue);}
         button.primary:hover { background: #153a5b; border-color: #153a5b; }
+        #btn-reset { color: #ef4444; border-color: #fca5a5; }
+        #btn-reset:hover { background: #fef2f2; border-color: #ef4444; }
 
-        .canvas-container { display: flex; gap: 30px; }
-        .canvas-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        /* FLOATING SETTINGS PANEL */
+        .settings-panel {
+            position: absolute;
+            top: 100%; 
+            margin-top: 15px;
+            width: max-content;
+            max-width: 600px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            display: none; 
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            box-sizing: border-box;
+            z-index: 100; 
+        }
+        .setting-group { display: flex; flex-direction: column; gap: 5px; }
+        .setting-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .setting-group input { 
+            padding: 8px; 
+            border: 1px solid var(--border-light); 
+            border-radius: 4px; 
+            font-family: inherit;
+        }
+
+        .canvas-container { 
+            display: flex; 
+            gap: 20px; 
+            width: 100%;
+            justify-content: center;
+        }
+        .canvas-wrapper { 
+            flex: 1 1 50%; /* Each canvas gets 50% of available space */
+            min-width: 0;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 8px; 
+            max-width: 100%;
+        }
         .canvas-title { font-weight: 700; font-size: 15px; }
         canvas { 
             background: white; 
             border: 1px solid var(--border-light); 
             border-radius: 8px; 
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            width: 100%; /* Forces canvas to shrink smoothly */
+            max-width: 400px; /* Never larger than 400px */
+            height: auto; /* Maintains perfect square aspect ratio */
         }
 
         .legend-bar { 
@@ -157,14 +214,63 @@
             font-size: 12px;
             color: var(--text-muted);
             box-sizing: border-box;
+            flex-wrap: wrap; 
         }
-        .legend-group { display: flex; align-items: center; gap: 10px; }
+        .legend-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;}
         .legend-item { display: flex; align-items: center; gap: 5px; }
-        .l-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .l-square { width: 10px; height: 10px; border-radius: 2px; }
-        .l-hollow { width: 10px; height: 10px; border: 2px solid var(--text-main); box-sizing: border-box; }
+        .l-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;}
+        .l-square { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;}
+        .l-hollow { width: 10px; height: 10px; border: 2px solid var(--text-main); box-sizing: border-box; flex-shrink: 0;}
         .divider { width: 1px; height: 16px; background: var(--border-light); }
 
+        /* ========================================================= */
+        /* 📱 RESPONSIVE MEDIA QUERIES                               */
+        /* ========================================================= */
+        
+        /* 1. TABLET BREAKPOINT: Lowered from 1200px to 950px */
+        @media (max-width: 950px) {
+            .dashboard-layout {
+                flex-direction: column;
+                align-items: center;
+            }
+            .side-panel {
+                max-width: 100%; /* Stretch on tablets/phones */
+            }
+            .center-stage {
+                max-width: 100%;
+            }
+        }
+
+        /* 2. MOBILE BREAKPOINT: Stack canvases vertically */
+        @media (max-width: 600px) {
+            body { padding: 15px 10px; }
+            .canvas-container { 
+                flex-direction: column; /* Stack canvases */
+                gap: 20px; 
+            }
+            .canvas-wrapper {
+                width: 100%;
+            }
+            
+            .global-telemetry {
+                justify-content: center;
+            }
+
+            .divider { 
+                width: 100%; 
+                height: 1px; 
+                margin: 5px 0;
+            }
+
+            /* Un-float the settings panel so it doesn't break boundaries */
+            .settings-panel {
+                position: static;
+                width: 100%;
+                max-width: 100%;
+                margin-top: 10px;
+                grid-template-columns: 1fr; /* Single column inputs */
+            }
+        }
     </style>
 </head>
 <body>
@@ -223,10 +329,33 @@
                 <div>Sim Time: <span id="t-time">0</span> min</div>
             </div>
 
-            <div class="controls">
-                <button class="primary" id="btn-play" onclick="togglePlay()">Play Simulation</button>
-                <button onclick="speedUp()">Playback Speed: <span id="speed-lbl">1x</span></button>
-                <button onclick="injectOrderSpike()">Inject +20 Orders</button>
+            <div style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center;">
+                <div class="controls">
+                    <button class="primary" id="btn-play" onclick="togglePlay()">Play Simulation</button>
+                    <button id="btn-reset" onclick="resetSim()">Reset</button>
+                    <button onclick="speedUp()">Playback Speed: <span id="speed-lbl">1x</span></button>
+                    <button onclick="injectOrderSpike()">Inject +20</button>
+                    <button onclick="toggleSettings()">Custom Rules</button>
+                </div>
+
+                <div class="settings-panel" id="settings-panel">
+                    <div class="setting-group">
+                        <label>Inbound Order Rate (Ticks per order, lower = faster)</label>
+                        <input type="number" id="set-inbound" value="23" min="5" max="100">
+                    </div>
+                    <div class="setting-group">
+                        <label>Picker Walk Speed (Ticks per step, higher = slower)</label>
+                        <input type="number" id="set-picker-speed" value="1" min="1" max="10">
+                    </div>
+                    <div class="setting-group">
+                        <label>API Priority Weight (SLA)</label>
+                        <input type="number" id="set-sla-weight" value="1.0" step="0.1">
+                    </div>
+                    <div class="setting-group">
+                        <label>API Age Penalty Weight</label>
+                        <input type="number" id="set-age-weight" value="0.1" step="0.1">
+                    </div>
+                </div>
             </div>
 
             <div class="canvas-container">
@@ -303,6 +432,7 @@
 <script>
 // --- CORE CONFIG (Tuned 35/30 Grid) ---
 const API_URL = "https://demo-proxy-205702260996.europe-west1.run.app/batch"; 
+const API_KEY = "VFaCgj4imNs_nY47fEJfl6CWJaOFys1ZKCKMXz2MCcI";
 const CELL = 12, COLS = 35, ROWS = 30;
 const PACK_X = 17, PACK_Y = 29; // Center bottom
 const PACK_STATION = `LOC_${PACK_X}_${PACK_Y}`;
@@ -312,6 +442,12 @@ const BATCH_SIZE = 5;
 const READY_POOL_MIN_THRESHOLD = 11; 
 const API_TOP_UP_AMOUNT = 20;  
 const API_CHECK_INTERVAL = 50; 
+
+// --- CUSTOM RULES ---
+let INBOUND_RATE = 23;
+let PICKER_SPEED = 1; 
+let SLA_WEIGHT = 1.0;
+let AGE_WEIGHT = 0.1;
 
 let simTick = 0;
 let speedMult = 1; 
@@ -474,14 +610,14 @@ async function triggerTCSAPI() {
         distance_matrix: distance_matrix,
         target_release_count: needed, 
         pack_station_id: PACK_STATION,
-        sla_weight: 1.0,
-        age_weight: 0.1 
+        sla_weight: SLA_WEIGHT,
+        age_weight: AGE_WEIGHT 
     };
 
     try {
         const resp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
             body: JSON.stringify(payload)
         });
         
@@ -529,6 +665,7 @@ class Picker {
         this.currentBatch = []; 
         this.targets = []; 
         this.stepPath = []; 
+        this.stepTick = 0;
     }
 
     requestBatch() {
@@ -566,6 +703,12 @@ class Picker {
         if(this.state === 'IDLE') {
             if(apiHasReturnedOnce) this.requestBatch();
         } else if (this.state === 'WALKING') {
+            
+            // Picker Walk Speed Throttle
+            this.stepTick++;
+            if(this.stepTick < PICKER_SPEED) return;
+            this.stepTick = 0;
+
             if(this.stepPath.length > 0) {
                 let step = this.stepPath.shift();
                 
@@ -694,25 +837,46 @@ function updateUI() {
     sAgeEl.className = sAge.max > 100 ? 'val age-alert' : 'val';
 }
 
-function gameLoop() {
+// --- NEW GAME LOOP & LOGIC ---
+let lastFrameTime = 0;
+const BASE_MS_PER_TICK = 50; // At 1x speed, 1 logic tick happens every 50ms (20 ticks/sec)
+
+function logicTick() {
+    simTick++;
+
+    if(simTick % INBOUND_RATE === 0) injectSingleOrder();
+
+    if(simTick % 60 === 0) {
+        WMS_Naive.readyPool.forEach(o => o.age_minutes += 1);
+        WMS_Smart.holdPool.forEach(o => o.age_minutes += 1);
+        WMS_Smart.readyPool.forEach(o => o.age_minutes += 1);
+    }
+
+    if(simTick % API_CHECK_INTERVAL === 0) triggerTCSAPI();
+
+    pNaive.update();
+    pSmart.update();
+}
+
+function gameLoop(timestamp) {
+    if (!lastFrameTime) lastFrameTime = timestamp;
+
     if(isRunning) {
-        for(let s=0; s<speedMult; s++) {
-            simTick++;
+        let msPerTick = BASE_MS_PER_TICK / speedMult;
+        let elapsed = timestamp - lastFrameTime;
+        
+        // Prevent huge jumps if user switches browser tabs
+        if (elapsed > 200) elapsed = msPerTick; 
 
-            if(simTick % 23 === 0) injectSingleOrder();
-
-            if(simTick % 60 === 0) {
-                WMS_Naive.readyPool.forEach(o => o.age_minutes += 1);
-                WMS_Smart.holdPool.forEach(o => o.age_minutes += 1);
-                WMS_Smart.readyPool.forEach(o => o.age_minutes += 1);
-            }
-
-            if(simTick % API_CHECK_INTERVAL === 0) triggerTCSAPI();
-
-            pNaive.update();
-            pSmart.update();
+        while (elapsed >= msPerTick) {
+            logicTick();
+            elapsed -= msPerTick;
+            lastFrameTime += msPerTick;
         }
+        lastFrameTime = timestamp - elapsed; // Fix floating point drift
         updateUI();
+    } else {
+        lastFrameTime = timestamp;
     }
 
     drawMap(ctxNaive); 
@@ -726,6 +890,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+// --- UI EVENT HANDLERS ---
 function togglePlay() {
     if(!hasColdStarted) {
         for(let i=0; i<30; i++) injectSingleOrder();
@@ -750,6 +915,50 @@ function injectOrderSpike() {
     updateUI();
 }
 
+function toggleSettings() {
+    const pnl = document.getElementById('settings-panel');
+    pnl.style.display = pnl.style.display === 'grid' ? 'none' : 'grid';
+}
+
+document.querySelectorAll('.settings-panel input').forEach(inp => {
+    inp.addEventListener('change', () => {
+        INBOUND_RATE = parseInt(document.getElementById('set-inbound').value) || 23;
+        PICKER_SPEED = parseInt(document.getElementById('set-picker-speed').value) || 1;
+        SLA_WEIGHT = parseFloat(document.getElementById('set-sla-weight').value) || 1.0;
+        AGE_WEIGHT = parseFloat(document.getElementById('set-age-weight').value) || 0.1;
+    });
+});
+
+function resetSim() {
+    isRunning = false;
+    hasColdStarted = false;
+    apiHasReturnedOnce = false;
+    isCallingAPI = false;
+    simTick = 0;
+    stats = { total: 0, sla5: 0, slaNorm: 0 };
+    
+    WMS_Naive = { readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
+    WMS_Smart = { holdPool: [], readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
+    
+    pNaive = new Picker(WMS_Naive, 'n');
+    pSmart = new Picker(WMS_Smart, 's');
+    
+    const btn = document.getElementById('btn-play');
+    btn.innerText = 'Play Simulation';
+    btn.style.background = 'var(--metal-blue)';
+    btn.style.borderColor = 'var(--metal-blue)';
+    
+    let apiStatus = document.getElementById('t-api-status');
+    apiStatus.innerText = 'IDLE';
+    apiStatus.style.color = '#94a3b8';
+    document.getElementById('t-api-last-req').innerText = '0 items';
+    
+    drawMap(ctxNaive);
+    drawMap(ctxSmart);
+    updateUI();
+}
+
+// INITIALIZATION
 drawMap(ctxNaive); 
 drawItems(ctxNaive, WMS_Naive, false, pNaive);
 drawMap(ctxSmart); 
