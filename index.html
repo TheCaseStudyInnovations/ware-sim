@@ -476,16 +476,6 @@ for (let x = 0; x < COLS; x++) {
     }
 }
 
-const distance_matrix = {};
-walkableLocs.forEach(l1 => {
-    distance_matrix[l1] = {};
-    let [_, x1, y1] = l1.split('_').map(Number);
-    walkableLocs.forEach(l2 => {
-        let [__, x2, y2] = l2.split('_').map(Number);
-        distance_matrix[l1][l2] = Math.abs(x1 - x2) + Math.abs(y1 - y2);
-    });
-});
-
 // --- DATA MODELS ---
 let WMS_Naive = { readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
 let WMS_Smart = { holdPool: [], readyPool: [], distance: 0, picked: 0, pickedSla5: 0, pickedNorm: 0 };
@@ -563,6 +553,17 @@ function findPath(startX, startY, endX, endY) {
     return []; 
 }
 
+const distance_matrix = {};
+walkableLocs.forEach(l1 => {
+    distance_matrix[l1] = {};
+    let [_, x1, y1] = l1.split('_').map(Number);
+    walkableLocs.forEach(l2 => {
+        let [__, x2, y2] = l2.split('_').map(Number);
+        // Use the actual BFS path distance instead of Manhattan distance!
+        distance_matrix[l1][l2] = findPath(x1, y1, x2, y2).length; 
+    });
+});
+
 function routeBatch(batch, startX, startY) {
     let unpickedItems = [];
     batch.forEach(order => {
@@ -571,6 +572,7 @@ function routeBatch(batch, startX, startY) {
         });
     });
 
+    // 1. Initial Greedy Route (Nearest Neighbor)
     let route = [];
     let currX = startX, currY = startY;
 
@@ -578,13 +580,47 @@ function routeBatch(batch, startX, startY) {
         let bestIdx = -1, bestDist = Infinity;
         for(let i=0; i<unpickedItems.length; i++) {
             let px = unpickedItems[i].item.walkX, py = unpickedItems[i].item.walkY;
-            let dist = Math.abs(currX - px) + Math.abs(currY - py);
+            
+            let startLoc = `LOC_${currX}_${currY}`;
+            let endLoc = `LOC_${px}_${py}`;
+            let dist = distance_matrix[startLoc][endLoc];
+            
             if(dist < bestDist) { bestDist = dist; bestIdx = i; }
         }
         let winner = unpickedItems.splice(bestIdx, 1)[0];
         route.push({x: winner.item.walkX, y: winner.item.walkY, order: winner.order, item: winner.item, isPack: false});
         currX = winner.item.walkX; currY = winner.item.walkY;
     }
+
+    // 2. 2-Opt Optimization (The Untangler)
+    let improved = true;
+    while(improved) {
+        improved = false;
+        // Check every pair of edges to see if swapping them makes the route shorter
+        for (let i = 0; i < route.length - 1; i++) {
+            for (let k = i + 1; k < route.length; k++) {
+                
+                // Get the coordinates for the 4 points (A, B, C, D)
+                let locA = i === 0 ? `LOC_${startX}_${startY}` : `LOC_${route[i-1].x}_${route[i-1].y}`;
+                let locB = `LOC_${route[i].x}_${route[i].y}`;
+                let locC = `LOC_${route[k].x}_${route[k].y}`;
+                let locD = k === route.length - 1 ? `LOC_${PACK_X}_${PACK_Y}` : `LOC_${route[k+1].x}_${route[k+1].y}`;
+
+                // Calculate distances: Current vs Swapped
+                let currentDist = distance_matrix[locA][locB] + distance_matrix[locC][locD];
+                let newDist = distance_matrix[locA][locC] + distance_matrix[locB][locD];
+
+                // If swapping makes it shorter, untangle it!
+                if (newDist < currentDist) {
+                    let reversedSegment = route.slice(i, k + 1).reverse();
+                    route.splice(i, reversedSegment.length, ...reversedSegment);
+                    improved = true;
+                }
+            }
+        }
+    }
+
+    // 3. Finalize
     route.push({x: PACK_X, y: PACK_Y, isPack: true}); 
     return route;
 }
