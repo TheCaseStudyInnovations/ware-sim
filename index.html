@@ -587,87 +587,64 @@ walkableLocs.forEach(l1 => {
 });
 
 function routeBatch(batch, startX, startY) {
-    let allItems = [];
+    let unpickedItems = [];
     batch.forEach(order => {
         order.items.forEach(item => {
-            allItems.push({ order: order, item: item });
+            unpickedItems.push({ order: order, item: item });
         });
     });
 
-    let bestOverallRoute = null;
-    let bestOverallDist = Infinity;
+    // 1. Initial Greedy Route (Nearest Neighbor)
+    let route = [];
+    let currX = startX, currY = startY;
 
-    // Multi-Start: Try generating a route by forcing each item to be the "first" stop
-    for (let startIdx = 0; startIdx < allItems.length; startIdx++) {
-        let unpicked = [...allItems];
-        let route = [];
-        let currX = startX, currY = startY;
-
-        // 1. Force the first pick to be the item at startIdx
-        let firstWinner = unpicked.splice(startIdx, 1)[0];
-        route.push({x: firstWinner.item.walkX, y: firstWinner.item.walkY, order: firstWinner.order, item: firstWinner.item, isPack: false});
-        currX = firstWinner.item.walkX; currY = firstWinner.item.walkY;
-
-        // 2. Standard Greedy (Nearest Neighbor) for the remaining items
-        while (unpicked.length > 0) {
-            let bestIdx = -1, bestDist = Infinity;
-            for (let i = 0; i < unpicked.length; i++) {
-                let px = unpicked[i].item.walkX, py = unpicked[i].item.walkY;
-                
-                let startLoc = `LOC_${currX}_${currY}`;
-                let endLoc = `LOC_${px}_${py}`;
-                let dist = distance_matrix[startLoc][endLoc];
-                
-                if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-            }
-            let winner = unpicked.splice(bestIdx, 1)[0];
-            route.push({x: winner.item.walkX, y: winner.item.walkY, order: winner.order, item: winner.item, isPack: false});
-            currX = winner.item.walkX; currY = winner.item.walkY;
+    while(unpickedItems.length > 0) {
+        let bestIdx = -1, bestDist = Infinity;
+        for(let i=0; i<unpickedItems.length; i++) {
+            let px = unpickedItems[i].item.walkX, py = unpickedItems[i].item.walkY;
+            
+            let startLoc = `LOC_${currX}_${currY}`;
+            let endLoc = `LOC_${px}_${py}`;
+            let dist = distance_matrix[startLoc][endLoc];
+            
+            if(dist < bestDist) { bestDist = dist; bestIdx = i; }
         }
+        let winner = unpickedItems.splice(bestIdx, 1)[0];
+        route.push({x: winner.item.walkX, y: winner.item.walkY, order: winner.order, item: winner.item, isPack: false});
+        currX = winner.item.walkX; currY = winner.item.walkY;
+    }
 
-        // 3. 2-Opt Optimization (The Untangler)
-        let improved = true;
-        while (improved) {
-            improved = false;
-            for (let i = 0; i < route.length - 1; i++) {
-                for (let k = i + 1; k < route.length; k++) {
-                    let locA = i === 0 ? `LOC_${startX}_${startY}` : `LOC_${route[i-1].x}_${route[i-1].y}`;
-                    let locB = `LOC_${route[i].x}_${route[i].y}`;
-                    let locC = `LOC_${route[k].x}_${route[k].y}`;
-                    let locD = k === route.length - 1 ? `LOC_${PACK_X}_${PACK_Y}` : `LOC_${route[k+1].x}_${route[k+1].y}`;
+    // 2. 2-Opt Optimization (The Untangler)
+    let improved = true;
+    while(improved) {
+        improved = false;
+        // Check every pair of edges to see if swapping them makes the route shorter
+        for (let i = 0; i < route.length - 1; i++) {
+            for (let k = i + 1; k < route.length; k++) {
+                
+                // Get the coordinates for the 4 points (A, B, C, D)
+                let locA = i === 0 ? `LOC_${startX}_${startY}` : `LOC_${route[i-1].x}_${route[i-1].y}`;
+                let locB = `LOC_${route[i].x}_${route[i].y}`;
+                let locC = `LOC_${route[k].x}_${route[k].y}`;
+                let locD = k === route.length - 1 ? `LOC_${PACK_X}_${PACK_Y}` : `LOC_${route[k+1].x}_${route[k+1].y}`;
 
-                    let currentDist = distance_matrix[locA][locB] + distance_matrix[locC][locD];
-                    let newDist = distance_matrix[locA][locC] + distance_matrix[locB][locD];
+                // Calculate distances: Current vs Swapped
+                let currentDist = distance_matrix[locA][locB] + distance_matrix[locC][locD];
+                let newDist = distance_matrix[locA][locC] + distance_matrix[locB][locD];
 
-                    if (newDist < currentDist) {
-                        let reversedSegment = route.slice(i, k + 1).reverse();
-                        route.splice(i, reversedSegment.length, ...reversedSegment);
-                        improved = true;
-                    }
+                // If swapping makes it shorter, untangle it!
+                if (newDist < currentDist) {
+                    let reversedSegment = route.slice(i, k + 1).reverse();
+                    route.splice(i, reversedSegment.length, ...reversedSegment);
+                    improved = true;
                 }
             }
         }
-
-        // 4. Calculate the total walking distance of this specific route variation
-        let totalDist = 0;
-        let cx = startX, cy = startY;
-        for (let r of route) {
-            totalDist += distance_matrix[`LOC_${cx}_${cy}`][`LOC_${r.x}_${r.y}`];
-            cx = r.x; cy = r.y;
-        }
-        // Add the final walk back to the pack station
-        totalDist += distance_matrix[`LOC_${cx}_${cy}`][`LOC_${PACK_X}_${PACK_Y}`];
-
-        // 5. If this route is the shortest one we've found so far, save it!
-        if (totalDist < bestOverallDist) {
-            bestOverallDist = totalDist;
-            bestOverallRoute = route;
-        }
     }
 
-    // Finally, attach the pack station to the end of the ultimate winning route
-    bestOverallRoute.push({x: PACK_X, y: PACK_Y, isPack: true}); 
-    return bestOverallRoute;
+    // 3. Finalize
+    route.push({x: PACK_X, y: PACK_Y, isPack: true}); 
+    return route;
 }
 
 // --- API INTEGRATION ---
