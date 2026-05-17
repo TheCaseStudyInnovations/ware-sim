@@ -210,8 +210,8 @@
 <body>
 
     <div class="header">
-        <h2>Automated Radial Slotting vs Naive Replenishment</h2>
-        <p>Simulation executes live HTTP POST requests to the /slot API based purely on emergent order volume.</p>
+        <h2>Dynamic Slotting Simulation</h2>
+        <p>Automated Radial Slotting vs Naive Replenishment</p>
     </div>
 
     <div class="dashboard-layout">
@@ -296,7 +296,7 @@
             <div class="card top-card">
                 <div>
                     <h3 class="card-title tcs-title">TCS-i Logic</h3>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">API triggers on replenishment. Passes real-time rolling pick volume to backend. Automatically executes UPGRADE_CONSOLIDATE on fast movers to the nearest radial bin.</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">API triggers on replenishment. Passes real-time rolling pick volume to backend. Automatically updates fast movers to the nearest radial bin.</div>
                 </div>
                 
                 <div>
