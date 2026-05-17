@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Slotting Simulation | TCS-i</title>
+    <style>
+        :root {
+            --metal-blue: #1F4E79;
+            --tcs-green: #28a745;
+            --wms-blue: #0056b3;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-light: #e2e8f0;
+        }
+
+        body { 
+            font-family: system-ui, Avenir, Helvetica, Arial, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0; 
+            padding: 30px 20px; 
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h2 { margin: 0; color: var(--metal-blue); font-size: 28px; font-weight: 700; letter-spacing: -0.02em;}
+        .header p { margin: 5px 0 0 0; color: var(--text-muted); font-size: 16px;}
+
+        /* FLUID 3-COLUMN MAIN LAYOUT */
+        .dashboard-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            width: 100%;
+            max-width: 1450px;
+        }
+
+        .side-panel {
+            flex: 1 1 250px;
+            min-width: 220px;
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+        }
+        
+        .top-card {
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 700;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+        }
+        .wms-title { color: var(--wms-blue); border-color: var(--wms-blue); }
+        .tcs-title { color: var(--tcs-green); border-color: var(--tcs-green); }
+
+        .metric-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 500;}
+        .metric-row.sub { font-size: 12px; color: var(--text-muted); font-weight: 400; padding-left: 10px; margin: 4px 0;}
+        .val { font-weight: 700; font-size: 16px; color: var(--metal-blue); }
+
+        .pool-badge {
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .center-stage {
+            flex: 3 1 830px;
+            min-width: 0;
+            max-width: 830px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .global-telemetry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgb(0 0 0 / 0.02);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .global-telemetry span { font-weight: 700; color: var(--metal-blue); }
+
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button { 
+            padding: 10px 16px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            border-radius: 6px; 
+            border: 1px solid var(--border-light); 
+            background: var(--card-bg); 
+            color: var(--text-main); 
+            transition: all 0.2s ease;
+            flex: 1 1 auto; 
+            text-align: center;
+        }
+        button:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        button.primary { background: var(--metal-blue); color: #fff; border-color: var(--metal-blue);}
+        button.primary:hover { background: #153a5b; border-color: #153a5b; }
+        #btn-reset { color: #ef4444; border-color: #fca5a5; }
+        #btn-reset:hover { background: #fef2f2; border-color: #ef4444; }
+
+        .canvas-container { 
+            display: flex; 
+            gap: 20px; 
+            width: 100%;
+            justify-content: center;
+        }
+        .canvas-wrapper { 
+            flex: 1 1 50%;
+            min-width: 0;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 8px; 
+            max-width: 100%;
+        }
+        .canvas-title { font-weight: 700; font-size: 15px; }
+        canvas { 
+            background: white; 
+            border: 1px solid var(--border-light); 
+            border-radius: 8px; 
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            width: 100%; 
+            max-width: 400px; 
+            height: auto;
+        }
+
+        .legend-bar { 
+            width: 100%; 
+            display: flex; 
+            justify-content: center; 
+            gap: 20px;
+            align-items: center; 
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            font-size: 12px;
+            color: var(--text-muted);
+            box-sizing: border-box;
+            flex-wrap: wrap; 
+        }
+        .legend-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;}
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .l-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;}
+        .l-square { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;}
+        .l-hollow { width: 10px; height: 10px; border: 2px solid var(--text-main); box-sizing: border-box; flex-shrink: 0;}
+        .divider { width: 1px; height: 16px; background: var(--border-light); }
+
+        @media (max-width: 950px) {
+            .dashboard-layout { flex-direction: column; align-items: center; }
+            .side-panel { max-width: 100%; }
+            .center-stage { max-width: 100%; }
+        }
+        @media (max-width: 600px) {
+            .canvas-container { flex-direction: column; gap: 20px; }
+            .canvas-wrapper { width: 100%; }
+            .divider { width: 100%; height: 1px; margin: 5px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Automated Radial Slotting vs Naive Replenishment</h2>
+        <p>Simulation executes live HTTP POST requests to the /slot API based purely on emergent order volume.</p>
+    </div>
+
+    <div class="dashboard-layout">
+        
+        <div class="side-panel">
+            <div class="card top-card">
+                <div>
+                    <h3 class="card-title wms-title">Standard WMS Logic</h3>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Replenishes stock strictly into the existing assigned bin. As organic order trends change, TSP routing efficiency degrades.</div>
+                </div>
+                
+                <div>
+                    <div class="metric-row">
+                        <span>Processor:</span>
+                        <span style="font-weight: 700; color: #94a3b8; font-size:12px;">STATIC REFILL</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:4px;">
+                        <span>Avg Walk per Batch:</span>
+                        <span class="pool-badge" id="n-eff" style="color: var(--text-main); background:#e2e8f0;">0 steps</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="metric-row"><span>Total Walk Distance:</span> <span class="val" id="n-dist">0</span></div>
+                <div style="height:10px;"></div>
+                <div class="metric-row"><span>Items Picked:</span> <span class="val" id="n-picked">0</span></div>
+                <div class="metric-row sub">↳ From Golden Zone: <span class="val" id="n-picks-gold" style="font-size: 13px;">0</span></div>
+                <div class="metric-row sub">↳ From Dead Zone: <span class="val" id="n-picks-dead" style="font-size: 13px;">0</span></div>
+                <div style="height:10px; border-bottom: 1px solid #f1f5f9; margin-bottom:10px;"></div>
+                <div class="metric-row"><span>Replenishments:</span> <span class="val" id="n-replens" style="font-size: 14px;">0</span></div>
+            </div>
+        </div>
+
+        <div class="center-stage">
+            
+            <div class="global-telemetry">
+                <div>Status: <span style="color: var(--tcs-green);">ORGANIC ORDER GENERATION ACTIVE</span></div>
+                <div>Batches Dispatched: <span id="t-total">0</span></div>
+                <div>Sim Time: <span id="t-time">0</span> min</div>
+            </div>
+
+            <div style="position: relative; width: 100%; display: flex; flex-direction: column; align-items: center;">
+                <div class="controls">
+                    <button class="primary" id="btn-play" onclick="togglePlay()">Play Simulation</button>
+                    <button id="btn-reset" onclick="resetSim()">Reset</button>
+                    <button onclick="speedUp()">Playback Speed: <span id="speed-lbl">1x</span></button>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="canvas-wrapper">
+                    <div class="canvas-title" style="color:var(--wms-blue);">Standard WMS</div>
+                    <canvas id="canvas-naive" width="400" height="400"></canvas>
+                </div>
+                <div class="canvas-wrapper">
+                    <div class="canvas-title" style="color:var(--tcs-green);">TCS-i Smart Slotting</div>
+                    <canvas id="canvas-smart" width="400" height="400"></canvas>
+                </div>
+            </div>
+
+            <div class="legend-bar">
+                <div class="legend-group">
+                    <strong>Agents:</strong>
+                    <div class="legend-item"><div class="l-dot" style="background:var(--wms-blue);"></div> WMS Picker</div>
+                    <div class="legend-item"><div class="l-dot" style="background:var(--tcs-green);"></div> TCS-i Picker</div>
+                </div>
+                <div class="divider"></div>
+                <div class="legend-group">
+                    <strong>Inventory:</strong>
+                    <div class="legend-item"><div class="l-square" style="background:#94a3b8;"></div> Normal SKU</div>
+                    <div class="legend-item"><div class="l-square" style="background:#ef4444;"></div> High Pick Vol (Emergent)</div>
+                </div>
+                <div class="divider"></div>
+                <div class="legend-group">
+                    <div class="legend-item"><div class="l-hollow"></div> Active Target</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="card top-card">
+                <div>
+                    <h3 class="card-title tcs-title">TCS-i Logic</h3>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">API triggers on replenishment. Passes real-time rolling pick volume to backend. Automatically executes UPGRADE_CONSOLIDATE on fast movers to the nearest radial bin.</div>
+                </div>
+                
+                <div>
+                    <div class="metric-row">
+                        <span>API Status:</span>
+                        <span id="t-api-status" style="font-weight: 700; color: #94a3b8; font-size:12px;">IDLE</span>
+                    </div>
+                    <div class="metric-row" style="background:#f8fafc; padding:4px 8px; border-radius:4px;">
+                        <span>Avg Walk per Batch:</span>
+                        <span class="pool-badge" id="s-eff" style="color: var(--tcs-green); background:#dcfce3;">0 steps</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="metric-row"><span>Walk Distance:</span> <span class="val" id="s-dist">0</span></div>
+                <div style="height:10px;"></div>
+                <div class="metric-row"><span>Items Picked:</span> <span class="val" id="s-picked">0</span></div>
+                <div class="metric-row sub">↳ From Golden Zone: <span class="val" id="s-picks-gold" style="font-size: 13px;">0</span></div>
+                <div class="metric-row sub">↳ From Dead Zone: <span class="val" id="s-picks-dead" style="font-size: 13px;">0</span></div>
+                <div style="height:10px; border-bottom: 1px solid #f1f5f9; margin-bottom:10px;"></div>
+                <div class="metric-row"><span>Dynamic Reslots:</span> <span class="val" id="s-replens" style="font-size: 14px;">0</span></div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// --- CORE CONFIG (MATCHING YOUR BACKEND CONFIG) ---
+const API_URL = "https://demo-proxy-205702260996.europe-west1.run.app/slot"; 
+
+const CELL = 12, COLS = 35, ROWS = 30;
+const PACK_X = 17, PACK_Y = 29;
+
+// DISTANCE BASED ZONING (Radial Manhattan distance from PACK_X, PACK_Y)
+const GOLD_MAX_DIST = 10;
+const SILVER_MAX_DIST = 20;
+
+const BATCH_SIZE = 5; 
+const MAX_STOCK = 4; 
+
+// Define what constitutes an objectively "Hot" item in the UI and the API
+const ROLLING_WINDOW_TICKS = 2000; 
+const HOT_THRESHOLD_PICKS = 3;    
+
+let simTick = 0;
+let speedMult = 1; 
+let isRunning = false;
+let globalBatches = 0;
+let isCallingAPI = false;
+
+const MAP_TO_API_ZONE = { 'GOLD': 'Golden Zone', 'SILVER': 'Silver Zone', 'DEAD': 'Dead Zone' };
+
+// --- WAREHOUSE LAYOUT & RADIAL PICK FACES ---
+const grid = Array(COLS).fill().map(() => Array(ROWS).fill(0));
+const walkableLocs = []; 
+const pickFaces = []; 
+
+for (let x = 2; x < COLS - 2; x += 4) {
+    for (let y = 2; y < ROWS - 2; y++) {
+        grid[x][y] = 1; grid[x+1][y] = 1; 
+        
+        // Calculate true walk distance for zoning
+        let walkX1 = x - 1;
+        let walkX2 = x + 2;
+
+        let dist1 = Math.abs(walkX1 - PACK_X) + Math.abs(y - PACK_Y);
+        let zone1 = dist1 <= GOLD_MAX_DIST ? "GOLD" : (dist1 <= SILVER_MAX_DIST ? "SILVER" : "DEAD");
+
+        let dist2 = Math.abs(walkX2 - PACK_X) + Math.abs(y - PACK_Y);
+        let zone2 = dist2 <= GOLD_MAX_DIST ? "GOLD" : (dist2 <= SILVER_MAX_DIST ? "SILVER" : "DEAD");
+
+        pickFaces.push({ id: `LOC_${walkX1}_${y}`, shelfX: x, shelfY: y, walkX: walkX1, walkY: y, zone: zone1 });
+        pickFaces.push({ id: `LOC_${walkX2}_${y}`, shelfX: x+1, shelfY: y, walkX: walkX2, walkY: y, zone: zone2 });
+    }
+}
+for (let x = 0; x < COLS; x++) {
+    for (let y = 0; y < ROWS; y++) {
+        if(grid[x][y] === 0) walkableLocs.push(`LOC_${x}_${y}`);
+    }
+}
+
+// --- SKU DATA MODEL ---
+const NUM_SKUS = 180;
+let masterSKUs = [];
+
+function initSKUs() {
+    masterSKUs = [];
+    let shuffledFaces = [...pickFaces].sort(() => Math.random() - 0.5);
+    
+    for(let i=0; i<NUM_SKUS; i++) {
+        masterSKUs.push({
+            id: i,
+            baseDemand: Math.random() * 0.5 + 0.1, 
+            targetDemand: 0,   
+            currentDemand: 0,  
+            
+            pickHistory: [],   
+            
+            naivePrimary: shuffledFaces[i],
+            naiveStock: MAX_STOCK,
+            
+            smartPrimary: shuffledFaces[i], 
+            smartPrimaryStock: MAX_STOCK,
+            smartDrain: null,
+            smartDrainStock: 0,
+            
+            isAwaitingAPI: false
+        });
+        masterSKUs[i].targetDemand = masterSKUs[i].baseDemand;
+        masterSKUs[i].currentDemand = masterSKUs[i].baseDemand;
+    }
+}
+initSKUs();
+
+// --- STATE MODELS ---
+let WMS_Naive = { queue: [], distance: 0, picked: 0, picksGold: 0, picksDead: 0, replens: 0, batchesDone: 0, isSmart: false };
+let WMS_Smart = { queue: [], distance: 0, picked: 0, picksGold: 0, picksDead: 0, replens: 0, batchesDone: 0, isSmart: true };
+
+// --- ORGANIC ORDER GENERATION ---
+function updateDemandTrends() {
+    masterSKUs.forEach(sku => {
+        sku.currentDemand += (sku.targetDemand - sku.currentDemand) * 0.05;
+    });
+}
+
+function shiftDemand() {
+    masterSKUs.forEach(sku => {
+        sku.targetDemand = sku.baseDemand;
+    });
+
+    let deadSKUs = masterSKUs.filter(s => s.naivePrimary.zone === 'DEAD');
+    deadSKUs.sort(() => Math.random() - 0.5);
+    
+    let newHot = deadSKUs.slice(0, 2);
+    newHot.forEach(sku => {
+        sku.targetDemand = 200; 
+    });
+}
+
+function generateBatch() {
+    if (globalBatches === 1 || (globalBatches > 0 && globalBatches % 8 === 0)) {
+        shiftDemand();
+    }
+
+    let batchItems = [];
+    for(let i=0; i<BATCH_SIZE; i++) {
+        let totalWeight = masterSKUs.reduce((sum, sku) => sum + sku.currentDemand, 0);
+        let randomVal = Math.random() * totalWeight;
+        let selectedSKU = masterSKUs[0];
+        
+        for (let sku of masterSKUs) {
+            randomVal -= sku.currentDemand;
+            if (randomVal <= 0) {
+                selectedSKU = sku;
+                break;
+            }
+        }
+        
+        selectedSKU.pickHistory.push(simTick);
+        batchItems.push(selectedSKU);
+    }
+    
+    globalBatches++;
+    WMS_Naive.queue.push([...batchItems]);
+    WMS_Smart.queue.push([...batchItems]);
+}
+
+// --- PATHFINDING & ROUTING ---
+function findPath(startX, startY, endX, endY) {
+    if (startX === endX && startY === endY) return [];
+    let queue = [{x: startX, y: startY, path: []}];
+    let visited = new Set([`${startX},${startY}`]);
+    const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+
+    while(queue.length > 0) {
+        let curr = queue.shift();
+        if(curr.x === endX && curr.y === endY) return curr.path;
+        for(let d of dirs) {
+            let nx = curr.x + d[0], ny = curr.y + d[1];
+            if(nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && grid[nx][ny] === 0) {
+                if(!visited.has(`${nx},${ny}`)) {
+                    visited.add(`${nx},${ny}`);
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+    }
+    return []; 
+}
+
+const distance_matrix = {};
+walkableLocs.forEach(l1 => {
+    distance_matrix[l1] = {};
+    let [_, x1, y1] = l1.split('_').map(Number);
+    walkableLocs.forEach(l2 => {
+        let [__, x2, y2] = l2.split('_').map(Number);
+        let dx = Math.abs(x1 - x2);
+        let dy = Math.abs(y1 - y2);
+        let sameAisle = Math.floor(x1 / 4) === Math.floor(x2 / 4);
+        let aboveRacks = Math.max(y1, y2) < 2;
+        let belowRacks = Math.min(y1, y2) > 27;
+
+        if (sameAisle || aboveRacks || belowRacks) {
+            distance_matrix[l1][l2] = dx + dy;
+        } else {
+            let distViaTop = Math.abs(y1 - 1) + dx + Math.abs(y2 - 1);
+            let distViaBottom = Math.abs(y1 - 28) + dx + Math.abs(y2 - 28);
+            distance_matrix[l1][l2] = Math.min(distViaTop, distViaBottom);
+        }
+    });
+});
+
+function routeBatch(stops, startX, startY) {
+    let route = [];
+    let currX = startX, currY = startY;
+    let unpicked = [...stops];
+
+    while(unpicked.length > 0) {
+        let bestIdx = -1, bestDist = Infinity;
+        for(let i=0; i<unpicked.length; i++) {
+            let px = unpicked[i].walkX, py = unpicked[i].walkY;
+            let startLoc = `LOC_${currX}_${currY}`;
+            let endLoc = `LOC_${px}_${py}`;
+            let dist = distance_matrix[startLoc][endLoc] || (Math.abs(currX-px) + Math.abs(currY-py));
+            if(dist < bestDist) { bestDist = dist; bestIdx = i; }
+        }
+        let winner = unpicked.splice(bestIdx, 1)[0];
+        route.push(winner);
+        currX = winner.walkX; currY = winner.walkY;
+    }
+
+    let improved = true;
+    while(improved) {
+        improved = false;
+        for (let i = 0; i < route.length - 1; i++) {
+            for (let k = i + 1; k < route.length; k++) {
+                let locA = i === 0 ? `LOC_${startX}_${startY}` : `LOC_${route[i-1].walkX}_${route[i-1].walkY}`;
+                let locB = `LOC_${route[i].walkX}_${route[i].walkY}`;
+                let locC = `LOC_${route[k].walkX}_${route[k].walkY}`;
+                let locD = k === route.length - 1 ? `LOC_${PACK_X}_${PACK_Y}` : `LOC_${route[k+1].walkX}_${route[k+1].walkY}`;
+
+                let getD = (s, e) => (distance_matrix[s] && distance_matrix[s][e]) ? distance_matrix[s][e] : 999;
+                let currentDist = getD(locA, locB) + getD(locC, locD);
+                let newDist = getD(locA, locC) + getD(locB, locD);
+
+                if (newDist < currentDist) {
+                    let reversedSegment = route.slice(i, k + 1).reverse();
+                    route.splice(i, reversedSegment.length, ...reversedSegment);
+                    improved = true;
+                }
+            }
+        }
+    }
+    
+    route.push({walkX: PACK_X, walkY: PACK_Y, isPack: true});
+    return route;
+}
+
+// --- ACTUAL HTTP API INTEGRATION ---
+
+function triggerNaiveReplenishment(sku, wms) {
+    sku.naiveStock = MAX_STOCK;
+    wms.replens++;
+}
+
+async function triggerLiveSlottingAPI(sku, wms) {
+    if (sku.isAwaitingAPI) return;
+    sku.isAwaitingAPI = true;
+    
+    let apiStatus = document.getElementById('t-api-status');
+    apiStatus.innerText = 'FETCHING...';
+    apiStatus.style.color = '#f59e0b'; 
+
+    let occupiedIds = new Set();
+    masterSKUs.forEach(s => {
+        if(s.smartPrimary) occupiedIds.add(s.smartPrimary.id);
+        if(s.smartDrain) occupiedIds.add(s.smartDrain.id);
+    });
+    
+    let emptyBins = pickFaces.filter(f => !occupiedIds.has(f.id)).map(f => ({
+        bin_id: f.id,
+        zone: MAP_TO_API_ZONE[f.zone],
+        available_volume: 100.0,
+        current_quantity_left: 0
+    }));
+
+    let recentPicksCount = sku.pickHistory.length;
+
+    const payload = {
+        sku: {
+            sku_id: "SKU_" + sku.id,
+            quantity_to_move: MAX_STOCK,
+            unit_volume: 1.0,
+            rolling_hourly_picks: [recentPicksCount] 
+        },
+        warehouse_context: {
+            golden_zone_velocity_threshold_per_hour: HOT_THRESHOLD_PICKS - 0.5, 
+            silver_zone_velocity_threshold_per_hour: 1.0,
+            multi_bin_drain_supported: true
+        },
+        bin_options: {
+            current_home_bin: sku.smartPrimary ? {
+                bin_id: sku.smartPrimary.id,
+                zone: MAP_TO_API_ZONE[sku.smartPrimary.zone],
+                available_volume: 100.0,
+                current_quantity_left: 0 
+            } : null,
+            empty_bins: emptyBins
+        }
+    };
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const decision = data.meta.decision_code;
+
+            if (decision === "UPGRADE_CONSOLIDATE" || decision === "DOWNGRADE_DRAIN" || decision === "DOWNGRADE_SWEEP") {
+                let newPrimaryAlloc = data.allocations.find(a => a.role === 'new_primary');
+                if (newPrimaryAlloc) {
+                    let newBin = pickFaces.find(f => f.id === newPrimaryAlloc.bin_id);
+                    
+                    if (decision === "DOWNGRADE_DRAIN") {
+                        sku.smartDrain = sku.smartPrimary;
+                        sku.smartDrainStock = sku.smartPrimaryStock; 
+                    } else {
+                        sku.smartDrain = null;
+                        sku.smartDrainStock = 0;
+                    }
+
+                    sku.smartPrimary = newBin;
+                    sku.smartPrimaryStock = MAX_STOCK;
+                    wms.replens++;
+                    apiStatus.innerText = 'SUCCESS (RESLOT)';
+                }
+            } else {
+                sku.smartPrimaryStock = MAX_STOCK;
+                apiStatus.innerText = 'SUCCESS (TOP-UP)';
+            }
+            apiStatus.style.color = '#10b981'; 
+        } else {
+            throw new Error(`HTTP Error ${response.status}`);
+        }
+    } catch (err) {
+        console.error("API Fetch Error:", err);
+        sku.smartPrimaryStock = MAX_STOCK;
+        apiStatus.innerText = 'ERR / FALLBACK';
+        apiStatus.style.color = '#ef4444'; 
+    } finally {
+        sku.isAwaitingAPI = false;
+        
+        setTimeout(() => {
+            if(apiStatus.innerText.includes('SUCCESS') || apiStatus.innerText.includes('ERR')) {
+                apiStatus.innerText = 'IDLE';
+                apiStatus.style.color = '#94a3b8';
+            }
+        }, 2000);
+    }
+}
+
+// --- AGENT (PICKER) LOGIC ---
+class Picker {
+    constructor(stateObj, prefixId) {
+        this.x = PACK_X; this.y = PACK_Y;
+        this.stateObj = stateObj; 
+        this.prefixId = prefixId; 
+        this.currentBatch = []; 
+        this.targets = []; 
+        this.stepPath = []; 
+    }
+
+    requestBatch() {
+        if(this.stateObj.queue.length === 0) return;
+        let batchSKUs = this.stateObj.queue.shift();
+        
+        let skuCounts = new Map();
+        batchSKUs.forEach(sku => {
+            skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
+        });
+        
+        let stops = [];
+        skuCounts.forEach((qty, sku) => {
+            let bin;
+            if(this.stateObj.isSmart) {
+                bin = (sku.smartDrain && sku.smartDrainStock > 0) ? sku.smartDrain : sku.smartPrimary;
+            } else {
+                bin = sku.naivePrimary;
+            }
+            stops.push({ sku: sku, bin: bin, qty: qty, shelfX: bin.shelfX, shelfY: bin.shelfY, walkX: bin.walkX, walkY: bin.walkY, isPack: false });
+        });
+
+        this.currentBatch = stops;
+        let optimizedRoute = routeBatch(stops, this.x, this.y);
+        this.targets = optimizedRoute.filter(r => !r.isPack);
+        
+        this.stepPath = [];
+        let currX = this.x, currY = this.y;
+        for(let stop of optimizedRoute) {
+            let segment = findPath(currX, currY, stop.walkX, stop.walkY);
+            for(let i=0; i<segment.length; i++) {
+                let isLastStep = (i === segment.length - 1);
+                this.stepPath.push({ 
+                    x: segment[i].x, 
+                    y: segment[i].y, 
+                    isTarget: isLastStep, 
+                    stopRef: isLastStep ? stop : null 
+                });
+            }
+            if(segment.length === 0) {
+                this.stepPath.push({x: stop.walkX, y: stop.walkY, isTarget: true, stopRef: stop});
+            }
+            currX = stop.walkX; currY = stop.walkY;
+        }
+    }
+
+    update() {
+        if (this.stepPath.length === 0) {
+            this.requestBatch();
+            return;
+        }
+
+        let step = this.stepPath.shift();
+        
+        if (this.x !== step.x || this.y !== step.y) {
+            this.x = step.x; this.y = step.y;
+            this.stateObj.distance++;
+        }
+
+        if (step.isTarget) {
+            if (step.stopRef.isPack) {
+                this.currentBatch = [];
+                this.stateObj.batchesDone++;
+            } else {
+                let sku = step.stopRef.sku;
+                let bin = step.stopRef.bin;
+                let qtyToPick = step.stopRef.qty;
+                
+                if(this.stateObj.isSmart) {
+                    if(bin === sku.smartDrain) {
+                        sku.smartDrainStock -= qtyToPick;
+                        if(sku.smartDrainStock <= 0) sku.smartDrain = null; 
+                    } else {
+                        sku.smartPrimaryStock -= qtyToPick;
+                        if(sku.smartPrimaryStock <= 0) triggerLiveSlottingAPI(sku, this.stateObj);
+                    }
+                } else {
+                    sku.naiveStock -= qtyToPick;
+                    if(sku.naiveStock <= 0) triggerNaiveReplenishment(sku, this.stateObj);
+                }
+
+                this.stateObj.picked += qtyToPick;
+                if(bin.zone === 'GOLD') this.stateObj.picksGold += qtyToPick;
+                if(bin.zone === 'DEAD') this.stateObj.picksDead += qtyToPick;
+                
+                this.targets = this.targets.filter(t => t !== step.stopRef);
+            }
+
+            document.getElementById(`${this.prefixId}-dist`).innerText = this.stateObj.distance;
+            document.getElementById(`${this.prefixId}-picked`).innerText = this.stateObj.picked;
+            document.getElementById(`${this.prefixId}-picks-gold`).innerText = this.stateObj.picksGold;
+            document.getElementById(`${this.prefixId}-picks-dead`).innerText = this.stateObj.picksDead;
+            
+            if(!this.stateObj.isSmart) document.getElementById(`n-replens`).innerText = this.stateObj.replens;
+            else document.getElementById(`s-replens`).innerText = this.stateObj.replens;
+            
+            let eff = this.stateObj.batchesDone > 0 ? (this.stateObj.distance / this.stateObj.batchesDone).toFixed(0) : 0;
+            let effEl = document.getElementById(`${this.prefixId}-eff`);
+            effEl.innerText = eff + ' steps';
+            
+            if(eff > 160) { effEl.style.color = '#ef4444'; effEl.style.background = '#fee2e2'; }
+            else if(eff < 100 && eff > 0) { effEl.style.color = 'var(--tcs-green)'; effEl.style.background = '#dcfce3'; }
+            else { effEl.style.color = 'var(--text-main)'; effEl.style.background = '#e2e8f0'; }
+        }
+    }
+
+    draw(ctx, pickerColor) {
+        ctx.fillStyle = pickerColor;
+        ctx.beginPath();
+        ctx.arc(this.x * CELL + CELL/2, this.y * CELL + CELL/2, 6, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#1e293b'; 
+        ctx.lineWidth = 2;
+        this.targets.forEach(t => {
+            if(!t.isPack) {
+                ctx.strokeRect(t.shelfX * CELL + 2, t.shelfY * CELL + 2, CELL-4, CELL-4);
+                if(t.qty > 1) {
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(t.qty, t.shelfX * CELL + CELL/2 - 3, t.shelfY * CELL - 2);
+                }
+            }
+        });
+    }
+}
+
+const ctxNaive = document.getElementById('canvas-naive').getContext('2d');
+const ctxSmart = document.getElementById('canvas-smart').getContext('2d');
+
+function drawMap(ctx) {
+    ctx.clearRect(0,0,400,400);
+    
+    // Create the Radial Diamond Heatmap for true visual representation
+    for(let x=0; x<COLS; x++) {
+        for(let y=0; y<ROWS; y++) {
+            let dist = Math.abs(x - PACK_X) + Math.abs(y - PACK_Y);
+            if(dist <= GOLD_MAX_DIST) ctx.fillStyle = 'rgba(250, 204, 21, 0.15)'; 
+            else if(dist <= SILVER_MAX_DIST) ctx.fillStyle = 'rgba(148, 163, 184, 0.15)';
+            else ctx.fillStyle = 'rgba(226, 232, 240, 0.4)';
+            
+            ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
+        }
+    }
+    
+    ctx.fillStyle = '#f1f5f9'; 
+    for(let x=0; x<COLS; x++) {
+        for(let y=0; y<ROWS; y++) {
+            if(grid[x][y] === 1) {
+                ctx.fillRect(x*CELL, y*CELL, CELL-1, CELL-1);
+            }
+        }
+    }
+    ctx.fillStyle = '#fcd34d'; 
+    ctx.fillRect(PACK_X*CELL - CELL, PACK_Y*CELL, CELL*3, CELL);
+}
+
+function drawItems(ctx, isSmart) {
+    let cellOffsets = {};
+    
+    const drawOffsetDot = (shelfX, shelfY, color) => {
+        let locKey = `${shelfX}_${shelfY}`;
+        if(!cellOffsets[locKey]) cellOffsets[locKey] = 0;
+        
+        let offsetX = (cellOffsets[locKey] % 2) * 6;
+        let offsetY = Math.floor(cellOffsets[locKey] / 2) * 6;
+        cellOffsets[locKey]++;
+        
+        ctx.fillStyle = color;
+        ctx.fillRect(shelfX * CELL + 2 + offsetX, shelfY * CELL + 2 + offsetY, 4, 4);
+    };
+
+    masterSKUs.forEach(sku => {
+        let isViral = sku.pickHistory.length >= HOT_THRESHOLD_PICKS;
+        let color = isSmart ? (isViral ? '#ef4444' : '#28a745') : (isViral ? '#ef4444' : '#0056b3');
+        let drainColor = '#94a3b8';
+        
+        if(!isSmart) {
+            for(let i=0; i<sku.naiveStock; i++) drawOffsetDot(sku.naivePrimary.shelfX, sku.naivePrimary.shelfY, color);
+        } else {
+            for(let i=0; i<sku.smartPrimaryStock; i++) drawOffsetDot(sku.smartPrimary.shelfX, sku.smartPrimary.shelfY, color);
+            if(sku.smartDrain) {
+                for(let i=0; i<sku.smartDrainStock; i++) drawOffsetDot(sku.smartDrain.shelfX, sku.smartDrain.shelfY, drainColor);
+            }
+        }
+    });
+}
+
+function updateUI() {
+    document.getElementById('t-total').innerText = globalBatches;
+    document.getElementById('t-time').innerText = Math.floor(simTick / 60);
+}
+
+// --- GAME LOOP ---
+let lastFrameTime = 0;
+const BASE_MS_PER_TICK = 45; 
+let pNaive = new Picker(WMS_Naive, 'n');
+let pSmart = new Picker(WMS_Smart, 's');
+
+function logicTick() {
+    simTick++;
+    updateDemandTrends(); 
+    
+    masterSKUs.forEach(sku => {
+        sku.pickHistory = sku.pickHistory.filter(t => (simTick - t) < ROLLING_WINDOW_TICKS);
+    });
+
+    let naiveIdle = WMS_Naive.queue.length === 0 && pNaive.stepPath.length === 0 && pNaive.currentBatch.length === 0;
+    let smartIdle = WMS_Smart.queue.length === 0 && pSmart.stepPath.length === 0 && pSmart.currentBatch.length === 0;
+    
+    if (naiveIdle && smartIdle) {
+        generateBatch();
+    }
+
+    pNaive.update();
+    pSmart.update();
+}
+
+function gameLoop(timestamp) {
+    if (!lastFrameTime) lastFrameTime = timestamp;
+
+    if(isRunning) {
+        let msPerTick = BASE_MS_PER_TICK / speedMult;
+        let elapsed = timestamp - lastFrameTime;
+        
+        if (elapsed > 200) elapsed = msPerTick; 
+
+        while (elapsed >= msPerTick) {
+            logicTick();
+            elapsed -= msPerTick;
+            lastFrameTime += msPerTick;
+        }
+        lastFrameTime = timestamp - elapsed; 
+        updateUI();
+    } else {
+        lastFrameTime = timestamp;
+    }
+
+    drawMap(ctxNaive); 
+    drawItems(ctxNaive, false); 
+    pNaive.draw(ctxNaive, '#0056b3');
+
+    drawMap(ctxSmart); 
+    drawItems(ctxSmart, true); 
+    pSmart.draw(ctxSmart, '#28a745');
+    
+    requestAnimationFrame(gameLoop);
+}
+
+// --- UI EVENT HANDLERS ---
+function togglePlay() {
+    isRunning = !isRunning;
+    const btn = document.getElementById('btn-play');
+    btn.innerText = isRunning ? 'Pause Simulation' : 'Play Simulation';
+    btn.style.background = isRunning ? '#ef4444' : 'var(--metal-blue)';
+    btn.style.borderColor = isRunning ? '#ef4444' : 'var(--metal-blue)';
+}
+
+function speedUp() {
+    speedMult = speedMult === 1 ? 2 : (speedMult === 2 ? 5 : 1);
+    document.getElementById('speed-lbl').innerText = speedMult + 'x';
+}
+
+function resetSim() {
+    isRunning = false;
+    simTick = 0;
+    globalBatches = 0;
+    isCallingAPI = false;
+    
+    initSKUs();
+    
+    WMS_Naive = { queue: [], distance: 0, picked: 0, picksGold: 0, picksDead: 0, replens: 0, batchesDone: 0, isSmart: false };
+    WMS_Smart = { queue: [], distance: 0, picked: 0, picksGold: 0, picksDead: 0, replens: 0, batchesDone: 0, isSmart: true };
+    
+    pNaive = new Picker(WMS_Naive, 'n');
+    pSmart = new Picker(WMS_Smart, 's');
+    
+    const btn = document.getElementById('btn-play');
+    btn.innerText = 'Play Simulation';
+    btn.style.background = 'var(--metal-blue)';
+    btn.style.borderColor = 'var(--metal-blue)';
+    
+    ['n', 's'].forEach(p => {
+        document.getElementById(`${p}-dist`).innerText = '0';
+        document.getElementById(`${p}-picked`).innerText = '0';
+        document.getElementById(`${p}-picks-gold`).innerText = '0';
+        document.getElementById(`${p}-picks-dead`).innerText = '0';
+        document.getElementById(`${p}-eff`).innerText = '0 steps';
+        document.getElementById(`${p}-eff`).style.background = '#e2e8f0';
+        document.getElementById(`${p}-eff`).style.color = 'var(--text-main)';
+    });
+    
+    document.getElementById('n-replens').innerText = '0';
+    document.getElementById('s-replens').innerText = '0';
+    document.getElementById('t-api-status').innerText = 'IDLE';
+    document.getElementById('t-api-status').style.color = '#94a3b8';
+    
+    drawMap(ctxNaive);
+    drawMap(ctxSmart);
+    updateUI();
+}
+
+// INITIALIZATION
+drawMap(ctxNaive); 
+drawItems(ctxNaive, false);
+drawMap(ctxSmart); 
+drawItems(ctxSmart, true);
+updateUI();
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>

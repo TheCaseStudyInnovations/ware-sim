@@ -432,7 +432,6 @@
 <script>
 // --- CORE CONFIG (Tuned 35/30 Grid) ---
 const API_URL = "https://demo-proxy-205702260996.europe-west1.run.app/batch"; 
-const API_KEY = "VFaCgj4imNs_nY47fEJfl6CWJaOFys1ZKCKMXz2MCcI";
 const CELL = 12, COLS = 35, ROWS = 30;
 const PACK_X = 17, PACK_Y = 29; // Center bottom
 const PACK_STATION = `LOC_${PACK_X}_${PACK_Y}`;
@@ -675,7 +674,7 @@ async function triggerTCSAPI() {
     try {
         const resp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+            headers: { 'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
         
