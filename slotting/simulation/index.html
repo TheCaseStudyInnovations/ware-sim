@@ -447,18 +447,27 @@ function generateBatch() {
     }
 
     let batchItems = [];
+    let batchCounts = new Map(); 
+
+    const MAX_PER_BATCH = 2; 
+
     for(let i=0; i<BATCH_SIZE; i++) {
-        let totalWeight = masterSKUs.reduce((sum, sku) => sum + sku.currentDemand, 0);
-        let randomVal = Math.random() * totalWeight;
-        let selectedSKU = masterSKUs[0];
+        // Only select from SKUs that haven't hit the per-batch limit
+        let availableSKUs = masterSKUs.filter(sku => (batchCounts.get(sku.id) || 0) < MAX_PER_BATCH);
         
-        for (let sku of masterSKUs) {
+        let totalWeight = availableSKUs.reduce((sum, sku) => sum + sku.currentDemand, 0);
+        let randomVal = Math.random() * totalWeight;
+        let selectedSKU = availableSKUs[0];
+        
+        for (let sku of availableSKUs) {
             randomVal -= sku.currentDemand;
             if (randomVal <= 0) {
                 selectedSKU = sku;
                 break;
             }
         }
+        
+        batchCounts.set(selectedSKU.id, (batchCounts.get(selectedSKU.id) || 0) + 1);
         
         selectedSKU.pickHistory.push(simTick);
         batchItems.push(selectedSKU);
@@ -765,11 +774,11 @@ class Picker {
                         if(sku.smartDrainStock <= 0) sku.smartDrain = null; 
                     } else {
                         sku.smartPrimaryStock -= qtyToPick;
-                        if(sku.smartPrimaryStock <= 0) triggerLiveSlottingAPI(sku, this.stateObj);
+                        if(sku.smartPrimaryStock <= 1) triggerLiveSlottingAPI(sku, this.stateObj);
                     }
                 } else {
                     sku.naiveStock -= qtyToPick;
-                    if(sku.naiveStock <= 0) triggerNaiveReplenishment(sku, this.stateObj);
+                    if(sku.naiveStock <= 1) triggerNaiveReplenishment(sku, this.stateObj);
                 }
 
                 this.stateObj.picked += qtyToPick;
